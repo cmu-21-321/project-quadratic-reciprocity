@@ -1,1 +1,1 @@
-import ProjectTemplate.Basic
+import QuadraticReciprocityResults.Basic
