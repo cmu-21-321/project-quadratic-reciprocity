@@ -11,8 +11,7 @@ maxSynthPendingDepth = 3
 
 [[require]]
 name = "mathlib"
-scope = "leanprover-community"
-rev = "v4.36.0-rc1"
+path = "/Users/zmy/.local/share/mathlib4/v4.36.0-rc1"
 
 [[lean_lib]]
 name = "QuadraticReciprocityResults"
