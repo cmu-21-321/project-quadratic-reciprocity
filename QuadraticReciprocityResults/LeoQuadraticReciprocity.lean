@@ -13,10 +13,8 @@ variable (p : ℕ) [instPp : Fact p.Prime]
 variable (q : ℕ) [instPq : Fact q.Prime]
 variable (hpq : p ≠ q)
 
-/-- A prime not equal to 2 is odd -/
-@[simp]
-lemma prime_ne_two_mod_2 (hp : p ≠ 2) : p % 2 = 1 :=
-  instPp.out.eq_two_or_odd.resolve_left hp
+private lemma prime_odd_of_ne_two' {p : ℕ} [inst : Fact p.Prime] (hne : p ≠ 2) : p % 2 = 1 :=
+  Nat.odd_iff.mp (inst.out.odd_of_ne_two hne)
 
 /-- Units modulo `p * q` whose canonical representative is strictly below half of `p * q`. -/
 def leftSubset : Set (ZMod (p * q))ˣ :=
@@ -121,8 +119,8 @@ include hpq in
 @[simp]
 lemma prod_left_mod_p (hq : q ≠ 2) : (∏ k ∈ leftFinset p q, (k.val.val : ZMod p))
     * (legendreSym p q) = (-1) ^ ((q - 1) / 2) := by
-  have hqodd' : Odd q := instPq.out.odd_of_ne_two hq
-  have hqodd := prime_ne_two_mod_2 q hq
+  have hqodd' := instPq.out.odd_of_ne_two hq
+  have hqodd := prime_odd_of_ne_two' hq
   -- The case p = 2 is immediate: every unit reduces to 1.
   by_cases hp : p = 2
   · subst p
@@ -136,7 +134,7 @@ lemma prod_left_mod_p (hq : q ≠ 2) : (∏ k ∈ leftFinset p q, (k.val.val : Z
       rw [legendreSym.eq_pow]
       simpa using hqodd'.natCast_zmod_two
     simp [hu, hleg]
-  have hpodd := prime_ne_two_mod_2 p hp
+  have hpodd := prime_odd_of_ne_two' hp
   let : NeZero (p * q) :=
     ⟨Nat.mul_ne_zero instPp.out.ne_zero instPq.out.ne_zero⟩
   let h := p / 2
@@ -362,7 +360,7 @@ lemma prod_rightFinset_eq {M : Type} [CommMonoid M]
       (i : ℚ) < (p : ℚ) / 2 ↔ i ≤ p / 2 := by
     rw [lt_div_iff₀ (by norm_num)]
     norm_cast
-    have hodd := prime_ne_two_mod_2 p hp
+    have hodd := prime_odd_of_ne_two' hp
     omega
   rw [← Finset.prod_product']
   refine Finset.prod_bij
@@ -431,7 +429,7 @@ lemma prod_left_right_common_sign (hp : p ≠ 2) :
         (e : ZMod q) * ∏ r ∈ rightFinset p q, (r.2 : ZMod q) := by
   let G := (ZMod p)ˣ × (ZMod q)ˣ
   let isom := crt_isomorphism_mul p q hpq
-  have hodd := prime_ne_two_mod_2 p hp
+  have hodd := prime_odd_of_ne_two' hp
   let : NeZero (p * q) :=
     ⟨Nat.mul_ne_zero instPp.out.ne_zero instPq.out.ne_zero⟩
   have hL (k : (ZMod (p * q))ˣ) :
