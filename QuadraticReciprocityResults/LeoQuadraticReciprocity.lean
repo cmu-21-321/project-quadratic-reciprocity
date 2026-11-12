@@ -13,6 +13,11 @@ variable (p : ℕ) [instPp : Fact p.Prime]
 variable (q : ℕ) [instPq : Fact q.Prime]
 variable (hpq : p ≠ q)
 
+/-- A prime not equal to 2 is odd -/
+@[simp]
+lemma prime_ne_two_mod_2 (hp : p ≠ 2) : p % 2 = 1 :=
+  instPp.out.eq_two_or_odd.resolve_left hp
+
 /-- Units modulo `p * q` whose canonical representative is strictly below half of `p * q`. -/
 def leftSubset : Set (ZMod (p * q))ˣ :=
   {k | (k.val.val : ℚ) < (p * q : ℚ) / 2}
@@ -116,7 +121,8 @@ include hpq in
 @[simp]
 lemma prod_left_mod_p (hq : q ≠ 2) : (∏ k ∈ leftFinset p q, (k.val.val : ZMod p))
     * (legendreSym p q) = (-1) ^ ((q - 1) / 2) := by
-  have hqodd : Odd q := instPq.out.odd_of_ne_two hq
+  have hqodd' : Odd q := instPq.out.odd_of_ne_two hq
+  have hqodd := prime_ne_two_mod_2 q hq
   -- The case p = 2 is immediate: every unit reduces to 1.
   by_cases hp : p = 2
   · subst p
@@ -128,23 +134,16 @@ lemma prod_left_mod_p (hq : q ≠ 2) : (∏ k ∈ leftFinset p q, (k.val.val : Z
       exact (Nat.coprime_two_right.mp hc).natCast_zmod_two
     have hleg : (legendreSym 2 (q : ℤ) : ZMod 2) = 1 := by
       rw [legendreSym.eq_pow]
-      simpa using hqodd.natCast_zmod_two
+      simpa using hqodd'.natCast_zmod_two
     simp [hu, hleg]
+  have hpodd := prime_ne_two_mod_2 p hp
   let : NeZero (p * q) :=
     ⟨Nat.mul_ne_zero instPp.out.ne_zero instPq.out.ne_zero⟩
   let h := p / 2
   let m := q / 2
   let N := p * m + h
-  have hpmod : p % 2 = 1 :=
-    instPp.out.eq_two_or_odd.resolve_left hp
-  have hqmod : q % 2 = 1 :=
-    instPq.out.eq_two_or_odd.resolve_left hq
-  have hpform : p = 2 * h + 1 := by
-    dsimp [h]
-    omega
-  have hqform : q = 2 * m + 1 := by
-    dsimp [m]
-    omega
+  have hpform : p = 2 * h + 1 := by omega
+  have hqform : q = 2 * m + 1 := by omega
   have hN : 2 * N + 1 = p * q := by
     dsimp only [N]
     rw [hqform]
@@ -359,12 +358,11 @@ lemma prod_rightFinset_eq {M : Type} [CommMonoid M]
     (∏ r ∈ rightFinset p q, f (r.1 : ZMod p) (r.2 : ZMod q)) =
       ∏ i ∈ Finset.Ico 1 (p / 2 + 1),
         ∏ j ∈ Finset.Ico 1 q, f i j := by
-  have hodd : p % 2 = 1 :=
-    instPp.out.eq_two_or_odd.resolve_left hp
   have hhalf (i : ℕ) :
       (i : ℚ) < (p : ℚ) / 2 ↔ i ≤ p / 2 := by
     rw [lt_div_iff₀ (by norm_num)]
     norm_cast
+    have hodd := prime_ne_two_mod_2 p hp
     omega
   rw [← Finset.prod_product']
   refine Finset.prod_bij
@@ -426,17 +424,16 @@ lemma prod_right_snd_mod_q (hp : p ≠ 2) :
 
 include hpq in
 lemma prod_left_right_common_sign (hp : p ≠ 2) :
-    ∃ e : ℤ, (e = 1 ∨ e = -1) ∧
+    ∃ e ∈ ({1, -1}: Set ℤ),
       (∏ k ∈ leftFinset p q, (k.val.val : ZMod p)) =
         (e : ZMod p) * ∏ r ∈ rightFinset p q, (r.1 : ZMod p) ∧
       (∏ k ∈ leftFinset p q, (k.val.val : ZMod q)) =
         (e : ZMod q) * ∏ r ∈ rightFinset p q, (r.2 : ZMod q) := by
   let G := (ZMod p)ˣ × (ZMod q)ˣ
   let isom := crt_isomorphism_mul p q hpq
+  have hodd := prime_ne_two_mod_2 p hp
   let : NeZero (p * q) :=
     ⟨Nat.mul_ne_zero instPp.out.ne_zero instPq.out.ne_zero⟩
-  have hodd : p % 2 = 1 :=
-    instPp.out.eq_two_or_odd.resolve_left hp
   have hL (k : (ZMod (p * q))ˣ) :
       k ∈ leftFinset p q ↔ k ∈ leftSubset p q := by
     simp only [leftFinset, Set.Finite.mem_toFinset]
