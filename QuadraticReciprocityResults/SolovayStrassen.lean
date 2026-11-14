@@ -1,3 +1,4 @@
+import Mathlib.Data.List.Intervals
 import Mathlib.NumberTheory.LegendreSymbol.Basic
 import Mathlib.NumberTheory.LegendreSymbol.JacobiSymbol
 
@@ -84,7 +85,7 @@ def findWitness (n : ℕ) : Option (ℤ ×' ¬n.Prime) :=
   else
     (List.Ico 1 n).attach.findSome? fun ⟨a, ha_mem⟩ =>
       if hCop : Int.gcd n a = 1 then
-      if ha : EulerProbablePrime n a then none
+        if ha : EulerProbablePrime n a then none
         else some ⟨a, EulerProbablePrime.not_prime (ne_of_not_le hn) hCop ha⟩
       else
         have hNp: ¬n.Prime := by
@@ -95,10 +96,20 @@ def findWitness (n : ℕ) : Option (ℤ ×' ¬n.Prime) :=
           exact hCop hCop'
         some ⟨a, hNp⟩
 
-/- Exercise 11.6b -/
-
-/-- The set of Euler liars coprime to `n` forms a subgroup of `(ZMod n)ˣ`. -/
-def liarSubgroup (n : ℕ) (hOdd : Odd n) (hNotPrime : ¬n.Prime) : Subgroup (ZMod n)ˣ := by
-  sorry
+/-- Exercise 11.6(b): The set of Euler liars coprime to `n` forms a subgroup of `(ZMod n)ˣ`. -/
+def liarSubgroup (n : ℕ) (hOdd : Odd n) (hNotPrime : ¬n.Prime) : Subgroup (ZMod n)ˣ where
+  carrier := { a | EulerProbablePrime n a.val.val }
+  mul_mem' := by
+    intro a b ha hb
+    dsimp at ha hb ⊢
+    constructor
+    · rw [ZMod.val_mul, Nat.coprime_comm, ZMod.coprime_mod_iff_coprime, ←Nat.coprime_comm]
+      exact Nat.Coprime.mul_right ha.1 hb.1
+    · rw [ZMod.val_mul]
+      push_cast at ha hb ⊢
+      rw [←jacobiSym.mod_left, jacobiSym.mul_left, mul_pow, ha.2, hb.2]
+      norm_cast
+  one_mem' := sorry
+  inv_mem' := sorry
 
 end SolovayStrassen
