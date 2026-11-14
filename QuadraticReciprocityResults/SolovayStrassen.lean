@@ -150,4 +150,18 @@ namespace Fermat
 def FermatProbablePrime (n : ℕ) (a : ℤ) : Prop :=
   Int.gcd a n = 1 ∧ (a : ZMod n) ^ (n - 1) = 1
 
+/-- Exercise 11.6(a): Every Fermat witness is a Euler witness.
+
+We prove the contrapositive due to the way the definitions are set up:
+  every Euler PP is a Fermat PP.
+-/
+theorem EulerProbablePrime.fermatProbablePrime {n : ℕ} (hOdd : Odd n) {a : ℤ}
+    (ha : EulerProbablePrime n a) : FermatProbablePrime n a := by
+  rcases hOdd
+  have hpow : (n - 1) / 2 * 2 = n - 1 := by omega
+  unfold FermatProbablePrime
+  rw [←hpow, pow_mul, ha.2]
+  rw_mod_cast [jacobiSym.sq_one ha.1]
+  exact ⟨ha.1, mod_cast rfl⟩
+
 end Fermat
