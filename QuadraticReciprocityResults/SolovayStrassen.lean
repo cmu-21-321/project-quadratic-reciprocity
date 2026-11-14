@@ -22,7 +22,7 @@ lemma pow_sub_one_div_two_eq_legendreSym (p : ℕ) [inst : Fact p.Prime] (hOdd :
 -/
 @[simp]
 def EulerProbablePrime (n : ℕ) (a : ℤ) : Prop :=
-  a.natAbs.Coprime n ∧ (a : ZMod n) ^ ((n - 1) / 2) = J(a | n)
+  n.Coprime a.natAbs ∧ (a : ZMod n) ^ ((n - 1) / 2) = J(a | n)
 
 namespace EulerProbablePrime
 
@@ -32,13 +32,34 @@ instance instDecidable {n : ℕ} {a : ℤ} : Decidable (EulerProbablePrime n a) 
 
 /-- Any odd prime is a Euler probable prime to any base. -/
 @[simp]
-theorem of_prime {p : ℕ} [Fact p.Prime] (hOdd : p ≠ 2) {a : ℤ} :
+theorem of_prime {p : ℕ} [Fact p.Prime] (hOdd : p ≠ 2) {a : ℤ} (hCop : p.Coprime a.natAbs) :
     EulerProbablePrime p a := by
   unfold EulerProbablePrime
-  simp only [pow_sub_one_div_two_eq_legendreSym p hOdd a, jacobiSym.legendreSym.to_jacobiSym]
+  constructor
+  · exact hCop
+  · simp only [pow_sub_one_div_two_eq_legendreSym p hOdd a, jacobiSym.legendreSym.to_jacobiSym]
+
+/-- **Solovay Strassen step**: For `n` odd and `a` coprime to `n`,
+failing the Euler probable prime criterion proves that `n` is not prime.
+
+We order the arguments this way so that `not_prime_of_not_eulerProbablePrime n hOdd` is
+a "test function" that can be applied to candidate witnesses.
+-/
+@[simp]
+theorem not_prime {n : ℕ} (hOdd : n ≠ 2) {a : ℤ} (hCop : n.Coprime a.natAbs)
+    (ha : ¬EulerProbablePrime n a) : ¬Nat.Prime n := by
+  intro hprime
+  have := Fact.mk hprime
+  exact ha (of_prime hOdd hCop)
 
 /-- A base `a` for which `n` is "probably prime" under the Solovay-Strassen test. -/
-abbrev Base (n : ℕ) := {a : ℤ // EulerProbablePrime n a}
+abbrev Base (n : ℕ) := {a : ZMod n | EulerProbablePrime n a.val}
+
+/-- The base and the probable prime have a gcd of one. -/
+@[simp]
+theorem gcd_eq_one {n : ℕ} {a : ℤ} (h : EulerProbablePrime n a) : gcd a n = 1 := by
+  rw [gcd_comm]
+  exact Nat.ToInt.of_eq rfl rfl h.1
 
 /-- `1` is always an Euler lier and thus need not be checked. -/
 theorem one (n : ℕ) : EulerProbablePrime n 1 := by
@@ -55,26 +76,24 @@ end EulerProbablePrime
 
 namespace SolovayStrassen
 
-/-- **Solovay Strassen step**: if the Euler criterion fails, then `n` is not prime.
-
-We order the arguments this way so that `not_prime_of_not_eulerProbablePrime n hOdd` is
-a "test function" that can be applied to candidate witnesses.
--/
-theorem not_prime_of_not_eulerProbablePrime (n : ℕ) (hOdd : n ≠ 2) (a : ℤ) :
-    ¬EulerProbablePrime n a → ¬Nat.Prime n := by
-  intro hneg
-  by_contra hprime
-  let factPrime := Fact.mk hprime
-  have hEPP := @EulerProbablePrime.of_prime n factPrime hOdd a
-  exact hneg hEPP
-
-/-- **Solovay Strassen test** -/
-def findWitness (n : ℕ) : Option (ℤ ×' ¬Nat.Prime n) :=
-  if hn : n = 2 then none
+/-- **Solovay-Strassen primality witness search**.
+For `a ∈ {1, ..., n - 1}`, either `gcd(a, n) > 1` (sufficient to show that `n` is composite)
+or `¬EulerProbablePrime n a` (so `a` is an Euler witness). -/
+def findWitness (n : ℕ) : Option (ℤ ×' ¬n.Prime) :=
+  if hn : n ≤ 2 then none
   else
-    (List.range n).findSome? fun a =>
+    (List.Ico 1 n).attach.findSome? fun ⟨a, ha_mem⟩ =>
+      if hCop : Int.gcd n a = 1 then
       if ha : EulerProbablePrime n a then none
-      else some ⟨a, not_prime_of_not_eulerProbablePrime n hn a ha⟩
+        else some ⟨a, EulerProbablePrime.not_prime (ne_of_not_le hn) hCop ha⟩
+      else
+        have hNp: ¬n.Prime := by
+          intro hP
+          have ha_range := List.Ico.mem.mp ha_mem
+          have hnDvd := Nat.not_dvd_of_pos_of_lt (by linarith) ha_range.2
+          have hCop' := hP.coprime_iff_not_dvd.mpr hnDvd
+          exact hCop hCop'
+        some ⟨a, hNp⟩
 
 /- Exercise 11.6b -/
 
