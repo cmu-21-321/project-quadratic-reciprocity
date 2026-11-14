@@ -32,7 +32,7 @@ namespace EulerProbablePrime
 instance instDecidable {n : ℕ} {a : ℤ} : Decidable (EulerProbablePrime n a) :=
   inferInstanceAs (Decidable (_ ∧ _))
 
-/-- Any odd prime is a Euler probable prime to any base. -/
+/-- Any odd prime is a Euler probable prime to any coprime base. -/
 @[simp]
 theorem of_prime {p : ℕ} [Fact p.Prime] (hOdd : p ≠ 2) {a : ℤ} (hCop : Int.gcd a p = 1) :
     EulerProbablePrime p a := by
@@ -41,10 +41,10 @@ theorem of_prime {p : ℕ} [Fact p.Prime] (hOdd : p ≠ 2) {a : ℤ} (hCop : Int
   · exact hCop
   · simp only [pow_sub_one_div_two_eq_legendreSym p hOdd a, jacobiSym.legendreSym.to_jacobiSym]
 
-/-- **Solovay Strassen step**: For `n` odd and `a` coprime to `n`,
+/-- **Solovay Strassen step**: For `n` not two and `a` coprime to `n`,
 failing the Euler probable prime criterion proves that `n` is not prime.
 
-We order the arguments this way so that `not_prime_of_not_eulerProbablePrime n hOdd` is
+We order the arguments this way so that `not_prime n hOdd` is
 a "test function" that can be applied to candidate witnesses.
 -/
 @[simp]
@@ -62,11 +62,11 @@ abbrev Base (n : ℕ) := {a : ZMod n | EulerProbablePrime n a.val}
 theorem gcd_eq_one {n : ℕ} {a : ℤ} (h : EulerProbablePrime n a) : Int.gcd a n = 1 := by
   exact h.1
 
-/-- `1` is always an Euler lier and thus need not be checked. -/
+/-- `1` always yields "probable prime" and thus need not be checked. -/
 theorem one (n : ℕ) : EulerProbablePrime n 1 := by
   simp
 
-/-- `-1` is an Euler lier for all odd numbers and thus need not be checked. -/
+/-- `-1` yields "probable prime" for all odd numbers and thus need not be checked. -/
 @[simp]
 theorem neg_one (n : ℕ) (hOdd : Odd n) : EulerProbablePrime n (-1) := by
   have hOdd' := Nat.odd_iff.mp hOdd
@@ -107,8 +107,7 @@ def liarSubgroup (n : ℕ) (hOdd : Odd n) : Subgroup (ZMod n)ˣ where
   mul_mem' {a b} ha hb := by
     dsimp at ha hb ⊢
     constructor
-    · rw [ZMod.val_mul, Int.natCast_emod, Int.gcd_emod, Nat.cast_mul]
-      exact (Int.gcd_mul_left_left_of_gcd_eq_one hb.1).trans ha.1
+    · exact ZMod.val_coe_unit_coprime (a * b)
     · rw [ZMod.val_mul]
       push_cast at ha hb ⊢
       rw [←jacobiSym.mod_left, jacobiSym.mul_left, mul_pow, ha.2, hb.2]
@@ -127,12 +126,9 @@ def liarSubgroup (n : ℕ) (hOdd : Odd n) : Subgroup (ZMod n)ˣ where
       have : NeZero n := ⟨Nat.ne_of_odd_add hOdd⟩
       rw [ZMod.natCast_val, ZMod.intCast_cast, ZMod.cast_id, ←ZMod.natCast_val] at ⊢ hEq
       have hmul : a.val ^ ((n - 1) / 2) * a⁻¹.val ^ ((n - 1) / 2) = 1 := invOf_eq_iff_right.mp rfl
-      rcases jacobiSym.trichotomy (a.val.val : ℤ) n with h | h | h
+      rcases jacobiSym.eq_one_or_neg_one hCop with h | h
       <;> have hjainv := (jacobiSym.inv_unit_val_left a).trans h
       <;> have ha := (congrArg (fun (j : ℤ) ↦ a ^ ((n - 1) / 2) = (j : ZMod n)) h).mp hEq
-      · rw [ha, Int.cast_zero, zero_mul] at hmul
-        have := ZMod.one_eq_zero_iff.mp hmul.symm
-        simp_all
       · have hjainv' : (J((a⁻¹.val.val : ℤ) | n) : ZMod n) = 1 := by grind
         rw [ha, Int.cast_one, one_mul] at hmul
         exact hmul.trans hjainv'.symm
@@ -155,7 +151,7 @@ def FermatProbablePrime (n : ℕ) (a : ℤ) : Prop :=
 We prove the contrapositive due to the way the definitions are set up:
   every Euler PP is a Fermat PP.
 -/
-theorem EulerProbablePrime.fermatProbablePrime {n : ℕ} (hOdd : Odd n) {a : ℤ}
+theorem eulerProbablePrime {n : ℕ} (hOdd : Odd n) {a : ℤ}
     (ha : EulerProbablePrime n a) : FermatProbablePrime n a := by
   rcases hOdd
   have hpow : (n - 1) / 2 * 2 = n - 1 := by omega
