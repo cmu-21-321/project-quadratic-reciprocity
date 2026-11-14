@@ -96,8 +96,39 @@ def findWitness (n : ℕ) : Option (ℤ ×' ¬n.Prime) :=
           exact hCop hCop'
         some ⟨a, hNp⟩
 
-/-- Exercise 11.6(b): The set of Euler liars forms a subgroup of `(ZMod n)ˣ`. -/
-def liarSubgroup (n : ℕ) (hOdd : Odd n) (hNotPrime : ¬n.Prime) : Subgroup (ZMod n)ˣ where
+/-- Reducing `a` via `(ZMod n).val` preserves `J(a | n)`. -/
+@[simp]
+lemma jacobiSym.zmod_val_left {n : ℕ} [NeZero n] (a : ℤ) :
+    J(((a : ZMod n).val : ℤ) | n) = J(a | n) := by
+  rw [ZMod.natCast_val, ZMod.coe_intCast, ←jacobiSym.mod_left]
+
+/-- Inversion in `(ZMod n)ˣ` preserves `J(· | n)`. -/
+theorem jacobiSym.inv_unit_val_left' {n : ℕ} [Fact (1 < n)] (a : (ZMod n)ˣ) :
+    J((a⁻¹.val.val : ℤ) | n) = J((a.val.val : ℤ) | n) := by
+  have hmul : J((a.val.val : ℤ) | n) * J((a⁻¹.val.val : ℤ) | n) = 1 := by
+    rw [←jacobiSym.mul_left, ←jacobiSym.zmod_val_left]
+    simp only [ZMod.natCast_val, Int.cast_mul, ZMod.intCast_cast, ZMod.cast_id]
+    rw [Units.mul_inv, ←ZMod.natCast_val, ZMod.val_one, Nat.cast_one]
+    exact jacobiSym.one_left n
+  rcases jacobiSym.trichotomy (a.val.val : ℤ) n with h | h | h
+  <;> rw [h] at hmul
+  <;> linarith
+
+/-- Inversion in `(ZMod n)ˣ` preserves `J(· | n)`. -/
+theorem jacobiSym.inv_unit_val_left {n : ℕ} [NeZero n] (a : (ZMod n)ˣ) :
+    J((a⁻¹.val.val : ℤ) | n) = J((a.val.val : ℤ) | n) := by
+  by_cases hn : 1 < n
+  · have : Fact (1 < n) := ⟨hn⟩
+    exact jacobiSym.inv_unit_val_left' a
+  · have h1 : n = 1 := (Nat.le_antisymm NeZero.one_le (Nat.le_of_not_lt hn)).symm
+    simp_all only [jacobiSym.one_right]
+
+/-- Exercise 11.6(b): The set of Euler liars forms a subgroup of `(ZMod n)ˣ`.
+
+Note that this works for prime `n` as well, since in that case all test bases
+in `(ZMod n)ˣ` answer "probably prime".
+-/
+def liarSubgroup (n : ℕ) (hOdd : Odd n) : Subgroup (ZMod n)ˣ where
   carrier := { a | EulerProbablePrime n a.val.val }
   mul_mem' {a b} ha hb := by
     dsimp at ha hb ⊢
@@ -119,7 +150,20 @@ def liarSubgroup (n : ℕ) (hOdd : Odd n) (hNotPrime : ¬n.Prime) : Subgroup (ZM
     constructor
     · exact (ZMod.val_coe_unit_coprime a⁻¹).symm
     · rcases ha with ⟨hCop, hEq⟩
-      simp
-      sorry
+      have : NeZero n := ⟨Nat.ne_of_odd_add hOdd⟩
+      rw [ZMod.natCast_val, ZMod.intCast_cast, ZMod.cast_id, ←ZMod.natCast_val] at ⊢ hEq
+      have hmul : a.val ^ ((n - 1) / 2) * a⁻¹.val ^ ((n - 1) / 2) = 1 := invOf_eq_iff_right.mp rfl
+      rcases jacobiSym.trichotomy (a.val.val : ℤ) n with h | h | h
+      <;> have hjainv := (jacobiSym.inv_unit_val_left a).trans h
+      <;> have ha := (congrArg (fun (j : ℤ) ↦ a ^ ((n - 1) / 2) = (j : ZMod n)) h).mp hEq
+      · rw [ha, Int.cast_zero, zero_mul] at hmul
+        have := ZMod.one_eq_zero_iff.mp hmul.symm
+        simp_all
+      · have hjainv' : (J((a⁻¹.val.val : ℤ) | n) : ZMod n) = 1 := by grind
+        rw [ha, Int.cast_one, one_mul] at hmul
+        exact hmul.trans hjainv'.symm
+      · have hjainv' : (J((a⁻¹.val.val : ℤ) | n) : ZMod n) = -1 := by grind
+        rw [ha, Int.cast_neg, Int.cast_one, neg_mul, one_mul, neg_eq_iff_eq_neg] at hmul
+        exact hmul.trans hjainv'.symm
 
 end SolovayStrassen
