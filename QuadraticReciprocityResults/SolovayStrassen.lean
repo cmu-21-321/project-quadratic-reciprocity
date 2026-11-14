@@ -24,7 +24,7 @@ lemma pow_sub_one_div_two_eq_legendreSym (p : ℕ) [inst : Fact p.Prime] (hOdd :
 -/
 @[simp]
 def EulerProbablePrime (n : ℕ) (a : ℤ) : Prop :=
-  n.Coprime a.natAbs ∧ (a : ZMod n) ^ ((n - 1) / 2) = J(a | n)
+  Int.gcd a n = 1 ∧ (a : ZMod n) ^ ((n - 1) / 2) = J(a | n)
 
 namespace EulerProbablePrime
 
@@ -34,7 +34,7 @@ instance instDecidable {n : ℕ} {a : ℤ} : Decidable (EulerProbablePrime n a) 
 
 /-- Any odd prime is a Euler probable prime to any base. -/
 @[simp]
-theorem of_prime {p : ℕ} [Fact p.Prime] (hOdd : p ≠ 2) {a : ℤ} (hCop : p.Coprime a.natAbs) :
+theorem of_prime {p : ℕ} [Fact p.Prime] (hOdd : p ≠ 2) {a : ℤ} (hCop : Int.gcd a p = 1) :
     EulerProbablePrime p a := by
   unfold EulerProbablePrime
   constructor
@@ -48,7 +48,7 @@ We order the arguments this way so that `not_prime_of_not_eulerProbablePrime n h
 a "test function" that can be applied to candidate witnesses.
 -/
 @[simp]
-theorem not_prime {n : ℕ} (hOdd : n ≠ 2) {a : ℤ} (hCop : n.Coprime a.natAbs)
+theorem not_prime {n : ℕ} (hOdd : n ≠ 2) {a : ℤ} (hCop : Int.gcd a n = 1)
     (ha : ¬EulerProbablePrime n a) : ¬Nat.Prime n := by
   intro hprime
   have := Fact.mk hprime
@@ -59,9 +59,8 @@ abbrev Base (n : ℕ) := {a : ZMod n | EulerProbablePrime n a.val}
 
 /-- The base and the probable prime have a gcd of one. -/
 @[simp]
-theorem gcd_eq_one {n : ℕ} {a : ℤ} (h : EulerProbablePrime n a) : gcd a n = 1 := by
-  rw [gcd_comm]
-  exact Nat.ToInt.of_eq rfl rfl h.1
+theorem gcd_eq_one {n : ℕ} {a : ℤ} (h : EulerProbablePrime n a) : Int.gcd a n = 1 := by
+  exact h.1
 
 /-- `1` is always an Euler lier and thus need not be checked. -/
 theorem one (n : ℕ) : EulerProbablePrime n 1 := by
@@ -85,7 +84,7 @@ def findWitness (n : ℕ) : Option (ℤ ×' ¬n.Prime) :=
   if hn : n ≤ 2 then none
   else
     (List.Ico 1 n).attach.findSome? fun ⟨a, ha_mem⟩ =>
-      if hCop : Int.gcd n a = 1 then
+      if hCop : Int.gcd a n = 1 then
         if ha : EulerProbablePrime n a then none
         else some ⟨a, EulerProbablePrime.not_prime (ne_of_not_le hn) hCop ha⟩
       else
@@ -93,7 +92,8 @@ def findWitness (n : ℕ) : Option (ℤ ×' ¬n.Prime) :=
           intro hP
           have ha_range := List.Ico.mem.mp ha_mem
           have hnDvd := Nat.not_dvd_of_pos_of_lt (by linarith) ha_range.2
-          have hCop' := hP.coprime_iff_not_dvd.mpr hnDvd
+          have hCop' : Int.gcd n a = 1 := hP.coprime_iff_not_dvd.mpr hnDvd
+          rw [Int.gcd_comm] at hCop'
           exact hCop hCop'
         some ⟨a, hNp⟩
 
@@ -107,8 +107,8 @@ def liarSubgroup (n : ℕ) (hOdd : Odd n) : Subgroup (ZMod n)ˣ where
   mul_mem' {a b} ha hb := by
     dsimp at ha hb ⊢
     constructor
-    · rw [ZMod.val_mul, Nat.coprime_comm, ZMod.coprime_mod_iff_coprime, ←Nat.coprime_comm]
-      exact Nat.Coprime.mul_right ha.1 hb.1
+    · rw [ZMod.val_mul, Int.natCast_emod, Int.gcd_emod, Nat.cast_mul]
+      exact (Int.gcd_mul_left_left_of_gcd_eq_one hb.1).trans ha.1
     · rw [ZMod.val_mul]
       push_cast at ha hb ⊢
       rw [←jacobiSym.mod_left, jacobiSym.mul_left, mul_pow, ha.2, hb.2]
@@ -122,7 +122,7 @@ def liarSubgroup (n : ℕ) (hOdd : Odd n) : Subgroup (ZMod n)ˣ where
       exact EulerProbablePrime.one n
   inv_mem' {a} ha := by
     constructor
-    · exact (ZMod.val_coe_unit_coprime a⁻¹).symm
+    · exact (ZMod.val_coe_unit_coprime a⁻¹)
     · rcases ha with ⟨hCop, hEq⟩
       have : NeZero n := ⟨Nat.ne_of_odd_add hOdd⟩
       rw [ZMod.natCast_val, ZMod.intCast_cast, ZMod.cast_id, ←ZMod.natCast_val] at ⊢ hEq
