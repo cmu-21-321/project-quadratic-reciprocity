@@ -96,11 +96,10 @@ def findWitness (n : ℕ) : Option (ℤ ×' ¬n.Prime) :=
           exact hCop hCop'
         some ⟨a, hNp⟩
 
-/-- Exercise 11.6(b): The set of Euler liars coprime to `n` forms a subgroup of `(ZMod n)ˣ`. -/
+/-- Exercise 11.6(b): The set of Euler liars forms a subgroup of `(ZMod n)ˣ`. -/
 def liarSubgroup (n : ℕ) (hOdd : Odd n) (hNotPrime : ¬n.Prime) : Subgroup (ZMod n)ˣ where
   carrier := { a | EulerProbablePrime n a.val.val }
-  mul_mem' := by
-    intro a b ha hb
+  mul_mem' {a b} ha hb := by
     dsimp at ha hb ⊢
     constructor
     · rw [ZMod.val_mul, Nat.coprime_comm, ZMod.coprime_mod_iff_coprime, ←Nat.coprime_comm]
@@ -109,7 +108,18 @@ def liarSubgroup (n : ℕ) (hOdd : Odd n) (hNotPrime : ¬n.Prime) : Subgroup (ZM
       push_cast at ha hb ⊢
       rw [←jacobiSym.mod_left, jacobiSym.mul_left, mul_pow, ha.2, hb.2]
       norm_cast
-  one_mem' := sorry
-  inv_mem' := sorry
+  one_mem' := by
+    by_cases h : n = 1
+    · rw [h]; exact ⟨rfl, by simp⟩
+    · have : Fact (1 < n) := ⟨by grind⟩
+      dsimp only [Set.mem_ofPred_eq, Units.val_one]
+      rw [ZMod.val_one]
+      exact EulerProbablePrime.one n
+  inv_mem' {a} ha := by
+    constructor
+    · exact (ZMod.val_coe_unit_coprime a⁻¹).symm
+    · rcases ha with ⟨hCop, hEq⟩
+      simp
+      sorry
 
 end SolovayStrassen
