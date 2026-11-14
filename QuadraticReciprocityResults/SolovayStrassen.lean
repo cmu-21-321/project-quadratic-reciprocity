@@ -17,17 +17,18 @@ lemma pow_sub_one_div_two_eq_legendreSym (p : ℕ) [inst : Fact p.Prime] (hOdd :
 /- Beware that jacobiSym is written in the opposite way as legendreSym! -/
 
 /--
-`n` is a *Euler probable prime* to base `a` if `a ^ ((n - 1) / 2) ≡ J(a|n) (mod n)`.
+`n` is a *Euler probable prime* to base `a` if `gcd a n = 1` and
+`a ^ ((n - 1) / 2) ≡ J(a|n) [MOD n]`.
 -/
 @[simp]
 def EulerProbablePrime (n : ℕ) (a : ℤ) : Prop :=
-  (a : ZMod n) ^ ((n - 1) / 2) = J(a | n)
+  a.natAbs.Coprime n ∧ (a : ZMod n) ^ ((n - 1) / 2) = J(a | n)
 
 namespace EulerProbablePrime
 
-/-- This provides an algorithm for deciding `EPP`. -/
+/-- This provides an algorithm for deciding `EulerProbablePrime`. -/
 instance instDecidable {n : ℕ} {a : ℤ} : Decidable (EulerProbablePrime n a) :=
-  decEq _ _
+  inferInstanceAs (Decidable (_ ∧ _))
 
 /-- Any odd prime is a Euler probable prime to any base. -/
 @[simp]
