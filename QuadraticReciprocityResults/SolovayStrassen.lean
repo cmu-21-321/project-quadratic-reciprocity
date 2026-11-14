@@ -10,11 +10,20 @@ import QuadraticReciprocityResults.ForMathlib.JacobiSymbol
 open scoped NumberTheorySymbols
 
 @[simp]
-lemma pow_sub_one_div_two_eq_legendreSym (p : ℕ) [inst : Fact p.Prime] (hOdd : p ≠ 2) (a : ℤ) :
-    (a : ZMod p) ^ ((p - 1) / 2) = legendreSym p a := by
-  obtain ⟨k, hk⟩ := inst.out.odd_of_ne_two hOdd
-  have hhalf : (p - 1) / 2 = p / 2 := by omega
-  rw [legendreSym.eq_pow, hhalf]
+lemma pow_sub_one_div_two_eq_legendreSym_of_coprime
+    {p : ℕ} [inst : Fact p.Prime] {a : ℤ} (hCop : Int.gcd a p = 1) :
+      (a : ZMod p) ^ ((p - 1) / 2) = legendreSym p a := by
+  by_cases h : p = 2
+  · subst p
+    have ha : (a : ZMod 2) ≠ 0 := by
+      intro h
+      rw [ZMod.intCast_zmod_eq_zero_iff_dvd] at h
+      rw_mod_cast [←Int.gcd_emod, Int.emod_eq_zero_of_dvd h] at hCop
+      cases hCop
+    rcases legendreSym.eq_one_or_neg_one 2 ha with h | h <;> simp [h]
+  · obtain ⟨k, hk⟩ := inst.out.odd_of_ne_two h
+    have hhalf : (p - 1) / 2 = p / 2 := by omega
+    rw [legendreSym.eq_pow, hhalf]
 
 /- Beware that jacobiSym is written in the opposite way as legendreSym! -/
 
@@ -32,27 +41,28 @@ namespace EulerProbablePrime
 instance instDecidable {n : ℕ} {a : ℤ} : Decidable (EulerProbablePrime n a) :=
   inferInstanceAs (Decidable (_ ∧ _))
 
-/-- Any odd prime is a Euler probable prime to any coprime base. -/
+/-- Any prime is a Euler probable prime to any coprime base. -/
 @[simp]
-theorem of_prime {p : ℕ} [Fact p.Prime] (hOdd : p ≠ 2) {a : ℤ} (hCop : Int.gcd a p = 1) :
+theorem of_prime {p : ℕ} [Fact p.Prime] {a : ℤ} (hCop : Int.gcd a p = 1) :
     EulerProbablePrime p a := by
   unfold EulerProbablePrime
   constructor
   · exact hCop
-  · simp only [pow_sub_one_div_two_eq_legendreSym p hOdd a, jacobiSym.legendreSym.to_jacobiSym]
+  · simp only [pow_sub_one_div_two_eq_legendreSym_of_coprime hCop,
+      jacobiSym.legendreSym.to_jacobiSym]
 
-/-- **Solovay Strassen step**: For `n` not two and `a` coprime to `n`,
+/-- **Solovay Strassen step**: For `a` coprime to `n`,
 failing the Euler probable prime criterion proves that `n` is not prime.
 
 We order the arguments this way so that `not_prime n hOdd` is
 a "test function" that can be applied to candidate witnesses.
 -/
 @[simp]
-theorem not_prime {n : ℕ} (hOdd : n ≠ 2) {a : ℤ} (hCop : Int.gcd a n = 1)
+theorem not_prime {n : ℕ} {a : ℤ} (hCop : Int.gcd a n = 1)
     (ha : ¬EulerProbablePrime n a) : ¬Nat.Prime n := by
   intro hprime
   have := Fact.mk hprime
-  exact ha (of_prime hOdd hCop)
+  exact ha (of_prime hCop)
 
 /-- A base `a` for which `n` is "probably prime" under the Solovay-Strassen test. -/
 abbrev Base (n : ℕ) := {a : ZMod n | EulerProbablePrime n a.val}
@@ -86,7 +96,7 @@ def findWitness (n : ℕ) : Option (ℤ ×' ¬n.Prime) :=
     (List.Ico 1 n).attach.findSome? fun ⟨a, ha_mem⟩ =>
       if hCop : Int.gcd a n = 1 then
         if ha : EulerProbablePrime n a then none
-        else some ⟨a, EulerProbablePrime.not_prime (ne_of_not_le hn) hCop ha⟩
+        else some ⟨a, EulerProbablePrime.not_prime hCop ha⟩
       else
         have hNp: ¬n.Prime := by
           intro hP
