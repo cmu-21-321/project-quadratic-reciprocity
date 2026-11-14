@@ -141,3 +141,13 @@ def liarSubgroup (n : ℕ) (hOdd : Odd n) : Subgroup (ZMod n)ˣ where
         exact hmul.trans hjainv'.symm
 
 end SolovayStrassen
+
+namespace Fermat
+
+/-- `n` is a *Fermat probable prime* to base `a` if
+`gcd(a, n) = 1` and `a ^ (n - 1) ≡ 1 [MOD n]`. -/
+@[simp]
+def FermatProbablePrime (n : ℕ) (a : ℤ) : Prop :=
+  Int.gcd a n = 1 ∧ (a : ZMod n) ^ (n - 1) = 1
+
+end Fermat
