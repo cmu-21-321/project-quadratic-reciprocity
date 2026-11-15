@@ -1,7 +1,8 @@
+import Mathlib.Algebra.CharP.Invertible
+import Mathlib.Analysis.Normed.Ring.Lemmas
+import Mathlib.Data.ZMod.Units
 import Mathlib.NumberTheory.LegendreSymbol.Basic
-import Mathlib.Data.Nat.Factorial.BigOperators
 import Mathlib.NumberTheory.Wilson
-import Mathlib.NumberTheory.LegendreSymbol.QuadraticReciprocity
 
 /-!
 # Alternative proof of quadratic reciprocity

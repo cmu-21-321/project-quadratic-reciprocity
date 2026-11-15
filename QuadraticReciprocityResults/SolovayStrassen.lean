@@ -1,6 +1,4 @@
 import Mathlib.Data.List.Intervals
-import Mathlib.NumberTheory.LegendreSymbol.Basic
-import Mathlib.NumberTheory.LegendreSymbol.JacobiSymbol
 import QuadraticReciprocityResults.ForMathlib.JacobiSymbol
 
 /-!
