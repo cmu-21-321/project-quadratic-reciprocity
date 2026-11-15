@@ -1,6 +1,7 @@
 import Mathlib.NumberTheory.LegendreSymbol.Basic
 import Mathlib.Data.Nat.Factorial.BigOperators
 import Mathlib.NumberTheory.Wilson
+import Mathlib.NumberTheory.LegendreSymbol.QuadraticReciprocity
 
 /-!
 # Alternative proof of quadratic reciprocity
@@ -9,9 +10,7 @@ This file proves QR with the method we discussed in class.
 -/
 namespace LeoQuadraticReciprocity
 
-variable (p : ℕ) [instPp : Fact p.Prime]
-variable (q : ℕ) [instPq : Fact q.Prime]
-variable (hpq : p ≠ q)
+variable {p q : ℕ}
 
 private lemma prime_odd_of_ne_two' {p : ℕ} [inst : Fact p.Prime] (hne : p ≠ 2) : p % 2 = 1 :=
   Nat.odd_iff.mp (inst.out.odd_of_ne_two hne)
@@ -25,80 +24,86 @@ def rightSubset : Set ((ZMod p)ˣ × (ZMod q)ˣ) :=
   {ab | (ab.fst.val.val : ℚ) < (p : ℚ) / 2}
 
 noncomputable def leftFinset : Finset (ZMod (p * q))ˣ :=
-  (Set.toFinite (leftSubset p q)).toFinset
+  (Set.toFinite leftSubset).toFinset
 
 noncomputable def rightFinset : Finset ((ZMod p)ˣ × (ZMod q)ˣ) :=
-  (Set.toFinite (rightSubset p q)).toFinset
+  (Set.toFinite rightSubset).toFinset
 
-def crt_isomorphism_mul :
-    (ZMod (p * q))ˣ ≃* (ZMod p)ˣ × (ZMod q)ˣ :=
-  (Units.mapEquiv
-    (ZMod.chineseRemainder ((Nat.coprime_primes instPp.out instPq.out).2 hpq)).toMulEquiv).trans
-      MulEquiv.prodUnits
+
+variable [instPp : Fact p.Prime] [instPq : Fact q.Prime] (hpq : p ≠ q)
+
+include hpq in
+private lemma coprime_pq : p.Coprime q :=
+  (Nat.coprime_primes instPp.out instPq.out).mpr hpq
+
+def crt_isomorphism_mul : (ZMod (p * q))ˣ ≃* (ZMod p)ˣ × (ZMod q)ˣ := by
+  let φ' := (ZMod.chineseRemainder (coprime_pq hpq))
+  exact (Units.mapEquiv φ'.toMulEquiv).trans MulEquiv.prodUnits
 
 @[simp]
 lemma crt_isomorphism_mul_neg (x : (ZMod (p * q))ˣ) :
-    crt_isomorphism_mul p q hpq (-x) = -crt_isomorphism_mul p q hpq x := by
-  let crt := ZMod.chineseRemainder ((Nat.coprime_primes instPp.out instPq.out).2 hpq)
+    crt_isomorphism_mul hpq (-x) = -crt_isomorphism_mul hpq x := by
+  let φ' := (ZMod.chineseRemainder (coprime_pq hpq))
   apply Prod.ext <;> apply Units.ext
-  · exact congrArg Prod.fst (crt.map_neg x.val)
-  · exact congrArg Prod.snd (crt.map_neg x.val)
+  · exact congrArg Prod.fst (φ'.map_neg x.val)
+  · exact congrArg Prod.snd (φ'.map_neg x.val)
 
 @[simp]
+lemma val_neg_of_unit_zmod_prod (k : (ZMod (p * q))ˣ) :
+    (-k).val.val = p * q - k.val.val := by
+  let : Fact (1 < p * q) := ⟨by nlinarith [instPp.out.one_lt, instPq.out.one_lt]⟩
+  exact ZMod.val_neg_of_ne_zero (n := p * q) k.val
+
+/-- Exercise 10.4: let `λ : (ℤ/pq)ˣ → (ℤ/p)ˣ × (ℤ/q)ˣ`
+be the canonical isomorphism mapping `k` to `(k, k)`.
+Prove that for every `(a, b) ∈ R` there is a unique `k ∈ L` such that `λ(k) = ±(a, b)`. -/
+@[simp]
 lemma crt_preimage_uniqueness (a : (ZMod p)ˣ) (b : (ZMod q)ˣ) :
-    ∃! k ∈ leftSubset p q,
-      crt_isomorphism_mul p q hpq k = (a, b) ∨ crt_isomorphism_mul p q hpq k = -(a, b) := by
-  let φ := crt_isomorphism_mul p q hpq
+    ∃! k ∈ leftSubset,
+      crt_isomorphism_mul hpq k = (a, b) ∨ crt_isomorphism_mul hpq k = -(a, b) := by
+  let φ := crt_isomorphism_mul hpq
   let k' := φ.symm (a, b)
-  have hval_neg : (-k').val.val = p * q - k'.val.val := by
-    have hn : 1 < p * q := by nlinarith [instPp.out.one_lt, instPq.out.one_lt]
-    let : Fact (1 < p * q) := ⟨hn⟩
-    let : NeZero (p * q) :=
-      ⟨Nat.mul_ne_zero instPp.out.ne_zero instPq.out.ne_zero⟩
-    let : NeZero (k'.val : ZMod (p * q)) := ⟨Units.ne_zero k'⟩
-    simpa only [Units.val_neg] using
-      (ZMod.val_neg_of_ne_zero (n := p * q) (a := (k'.val : ZMod (p * q))))
-  have hval_negQ : ((-k').val.val : ℚ) = (p * q : ℚ) - k'.val.val := by
-    rw [hval_neg, Nat.cast_sub (Nat.le_of_lt (ZMod.val_lt _))]
-    norm_num
-  rcases lt_trichotomy (k'.val.val : ℚ) ((p * q : ℚ) / 2) with hLt|hEq|hGt
+  have hval_neg_k : ((-k').val.val : ℚ) = (p * q : ℚ) - k'.val.val := by
+    rw [val_neg_of_unit_zmod_prod k', Nat.cast_sub (ZMod.val_le _),
+      ZMod.natCast_val, Nat.cast_mul]
+  -- First, the preimage cannot be pq/2 because it implies WLOG p = 2 and q = k',
+  -- which contradicts that k' is a unit
+  have hne : k'.val.val ≠ (p * q : ℚ) / 2 := by
+    intro h
+    rw [←mul_left_inj_of_invertible (c := 2)] at h
+    simp only [not_false_eq_true, ne_eq, OfNat.ofNat_ne_zero, isUnit_iff_ne_zero,
+      IsUnit.div_mul_cancel] at h
+    have h : k'.val.val * 2 = p * q := mod_cast h
+    apply_fun (· % (p * q)) at h
+    rw [←ZMod.natCast_eq_natCast_iff',
+      Nat.cast_mul, ZMod.natCast_val, ZMod.cast_id', id_eq, Nat.cast_ofNat,
+      CharP.cast_eq_zero, Units.mul_right_eq_zero] at h
+    have hdiv : p * q ∣ 2 := (ZMod.natCast_eq_zero_iff 2 (p * q)).mp h
+    have hpq_le_two : p * q ≤ 2 := Nat.le_of_dvd (by norm_num) hdiv
+    nlinarith [instPp.out.one_lt, instPq.out.one_lt]
+  -- Then, the choice of k is the obvious one
+  -- and uniqueness holds by isomorphism injectivity
+  rcases lt_or_gt_of_ne hne with hlt|hgt
   · use k'
     constructor
     · constructor -- existence
-      · exact hLt -- k ∈ L
+      · exact hlt -- k ∈ L
       · left; exact MulEquiv.apply_symm_apply φ (a, b) -- equality
-    · rintro y ⟨hymem, hPos | hNeg⟩ -- uniqueness, using isomorphism injectivity
+    · rintro y ⟨hymem, hPos | hNeg⟩
       · apply φ.injective
         rw [hPos, MulEquiv.apply_symm_apply]
-      · exfalso -- this case is not possible
+      · exfalso
+        change (y.val.val : ℚ) < (p * q : ℚ) / 2 at hymem
         have hy_eq_neg : y = -k' := by
           apply φ.injective
           rw [hNeg, crt_isomorphism_mul_neg, MulEquiv.apply_symm_apply]
-        change (y.val.val : ℚ) < (p * q : ℚ) / 2 at hymem
         rw [hy_eq_neg] at hymem
         linarith
-  · have hhalfQ : (2 : ℚ) * (k'.val.val : ℚ) = p * q := by linarith [hEq]
-    have hneg_eq_self : -k' = (k' : ZMod (p * q)) := by
-      apply (ZMod.neg_eq_self_iff (k' : ZMod (p * q))).mpr
-      right
-      exact_mod_cast hhalfQ
-    have hsum_eq_zero : (k' : ZMod (p * q)) + k' = 0 := by
-      nth_rw 1 [←hneg_eq_self]
-      ring
-    have htwo_eq_zero : (2 : ZMod (p * q)) = 0 := by
-      calc
-        (2 : ZMod (p * q)) = 1 + 1 := by norm_num
-        _ = k'.val * k'⁻¹ + k'.val * k'⁻¹ := by rw [←Units.mul_inv]
-        _ = 0 := by rw [←right_distrib, hsum_eq_zero, Units.mul_left_eq_zero]
-    have hdiv : p * q ∣ 2 := (ZMod.natCast_eq_zero_iff 2 (p * q)).mp htwo_eq_zero
-    have hpq_le_two : p * q ≤ 2 := Nat.le_of_dvd (by norm_num) hdiv
-    nlinarith [instPp.out.one_lt, instPq.out.one_lt]
   · use -k'
     dsimp
     constructor
     · constructor
       · change ((-k').val.val : ℚ) < (p * q : ℚ) / 2
-        rw [hval_negQ]
         linarith
       · right
         rw [crt_isomorphism_mul_neg, MulEquiv.apply_symm_apply]
@@ -117,26 +122,20 @@ lemma crt_preimage_uniqueness (a : (ZMod p)ˣ) (b : (ZMod q)ˣ) :
 
 include hpq in
 @[simp]
-lemma prod_left_mod_p (hq : q ≠ 2) : (∏ k ∈ leftFinset p q, (k.val.val : ZMod p))
+lemma prod_left_mod_p (hq : q ≠ 2) : (∏ k ∈ @leftFinset p q, (k.val.val : ZMod p))
     * (legendreSym p q) = (-1) ^ ((q - 1) / 2) := by
   have hqodd' := instPq.out.odd_of_ne_two hq
   have hqodd := prime_odd_of_ne_two' hq
   -- The case p = 2 is immediate: every unit reduces to 1.
   by_cases hp : p = 2
   · subst p
-    have hu (k : (ZMod (2 * q))ˣ) :
-        (k.val.val : ZMod 2) = 1 := by
-      have hc : k.val.val.Coprime 2 :=
-        (Nat.coprime_mul_iff_right.mp
-          (ZMod.val_coe_unit_coprime k)).1
-      exact (Nat.coprime_two_right.mp hc).natCast_zmod_two
-    have hleg : (legendreSym 2 (q : ℤ) : ZMod 2) = 1 := by
-      rw [legendreSym.eq_pow]
-      simpa using hqodd'.natCast_zmod_two
-    simp [hu, hleg]
+    have hu (k : (ZMod (2 * q))ˣ) : (k.val.val : ZMod 2) = 1 := by
+      apply Odd.natCast_zmod_two
+      apply Nat.coprime_two_right.mp
+      exact (Nat.coprime_mul_iff_right.mp (ZMod.val_coe_unit_coprime k)).1
+    simp [legendreSym.eq_pow, hu, hqodd'.natCast_zmod_two]
   have hpodd := prime_odd_of_ne_two' hp
-  let : NeZero (p * q) :=
-    ⟨Nat.mul_ne_zero instPp.out.ne_zero instPq.out.ne_zero⟩
+  let : NeZero (p * q) := ⟨Nat.mul_ne_zero instPp.out.ne_zero instPq.out.ne_zero⟩
   let h := p / 2
   let m := q / 2
   let N := p * m + h
@@ -166,7 +165,7 @@ lemma prod_left_mod_p (hq : q ≠ 2) : (∏ k ∈ leftFinset p q, (k.val.val : Z
     (fun n => n.Coprime (p * q))
   -- Replace units by their canonical natural representatives.
   have hleft :
-      (∏ k ∈ leftFinset p q, (k.val.val : ZMod p)) =
+      (∏ k ∈ @leftFinset p q, (k.val.val : ZMod p)) =
         ∏ n ∈ A, (n : ZMod p) := by
     refine Finset.prod_bij (fun k _ => k.val.val) ?_ ?_ ?_ ?_
     · intro k hk
@@ -185,7 +184,7 @@ lemma prod_left_mod_p (hq : q ≠ 2) : (∏ k ∈ leftFinset p q, (k.val.val : Z
       have hu : u.val.val = n := by
         change (n : ZMod (p * q)).val = n
         exact ZMod.val_natCast_of_lt hnlt
-      have humem : u ∈ leftFinset p q := by
+      have humem : u ∈ leftFinset := by
         simpa only [leftFinset, Set.Finite.mem_toFinset,
           leftSubset, Set.mem_ofPred_eq, hu] using
           (hcut n).mpr hnN
@@ -335,7 +334,7 @@ lemma prod_left_mod_p (hq : q ≠ 2) : (∏ k ∈ leftFinset p q, (k.val.val : Z
 
 include hpq in
 @[simp]
-lemma prod_left_mod_q (hp : p ≠ 2) : (∏ k ∈ leftFinset p q, (k.val.val : ZMod q))
+lemma prod_left_mod_q (hp : p ≠ 2) : (∏ k ∈ @leftFinset p q, (k.val.val : ZMod q))
     * (legendreSym q p) = (-1) ^ ((p - 1) / 2) := by
   convert prod_left_mod_p (p := q) (q := p)
     (hpq := hpq.symm) (hq := hp) using 2
@@ -353,7 +352,7 @@ lemma prod_left_mod_q (hp : p ≠ 2) : (∏ k ∈ leftFinset p q, (k.val.val : Z
 
 lemma prod_rightFinset_eq {M : Type} [CommMonoid M]
     (hp : p ≠ 2) (f : ZMod p → ZMod q → M) :
-    (∏ r ∈ rightFinset p q, f (r.1 : ZMod p) (r.2 : ZMod q)) =
+    (∏ r ∈ @rightFinset p q, f (r.1 : ZMod p) (r.2 : ZMod q)) =
       ∏ i ∈ Finset.Ico 1 (p / 2 + 1),
         ∏ j ∈ Finset.Ico 1 q, f i j := by
   have hhalf (i : ℕ) :
@@ -399,7 +398,6 @@ lemma prod_rightFinset_eq {M : Type} [CommMonoid M]
     refine ⟨(a, b), ?_, Prod.ext ha hb⟩
     simp only [rightFinset, Set.Finite.mem_toFinset,
       rightSubset, Set.mem_ofPred_eq]
-    change (a.val.val : ℚ) < (p : ℚ) / 2
     rw [ha]
     exact (hhalf i).mpr (by omega)
   · intro r hr
@@ -407,36 +405,36 @@ lemma prod_rightFinset_eq {M : Type} [CommMonoid M]
 
 @[simp]
 lemma prod_right_fst_mod_p (hp : p ≠ 2) :
-    ∏ r ∈ rightFinset p q, (r.1 : ZMod p) =
+    ∏ r ∈ @rightFinset p q, (r.1 : ZMod p) =
       ((Nat.factorial (p / 2) : ℕ) : ZMod p) ^ (q - 1) := by
-  rw [prod_rightFinset_eq p q hp (fun a _ => a)]
+  rw [prod_rightFinset_eq hp (fun a _ => a)]
   simp only [Finset.prod_const, Nat.card_Ico, Finset.prod_pow]
   rw [← Nat.cast_prod, Finset.prod_Ico_id_eq_factorial]
 
 @[simp]
 lemma prod_right_snd_mod_q (hp : p ≠ 2) :
-    ∏ r ∈ rightFinset p q, (r.2 : ZMod q) = (-1) ^ (p / 2) := by
-  rw [prod_rightFinset_eq p q hp (fun _ b => b)]
+    ∏ r ∈ @rightFinset p q, (r.2 : ZMod q) = (-1) ^ (p / 2) := by
+  rw [prod_rightFinset_eq hp (fun _ b => b)]
   simp only [ZMod.prod_Ico_one_prime, Finset.prod_const,
     Nat.card_Ico, Nat.add_sub_cancel]
 
 include hpq in
 lemma prod_left_right_common_sign (hp : p ≠ 2) :
     ∃ e ∈ ({1, -1}: Set ℤ),
-      (∏ k ∈ leftFinset p q, (k.val.val : ZMod p)) =
-        (e : ZMod p) * ∏ r ∈ rightFinset p q, (r.1 : ZMod p) ∧
-      (∏ k ∈ leftFinset p q, (k.val.val : ZMod q)) =
-        (e : ZMod q) * ∏ r ∈ rightFinset p q, (r.2 : ZMod q) := by
+      (∏ k ∈ @leftFinset p q, (k.val.val : ZMod p)) =
+        (e : ZMod p) * ∏ r ∈ @rightFinset p q, (r.1 : ZMod p) ∧
+      (∏ k ∈ @leftFinset p q, (k.val.val : ZMod q)) =
+        (e : ZMod q) * ∏ r ∈ @rightFinset p q, (r.2 : ZMod q) := by
   let G := (ZMod p)ˣ × (ZMod q)ˣ
-  let isom := crt_isomorphism_mul p q hpq
+  let isom := crt_isomorphism_mul hpq
   have hodd := prime_odd_of_ne_two' hp
   let : NeZero (p * q) :=
     ⟨Nat.mul_ne_zero instPp.out.ne_zero instPq.out.ne_zero⟩
   have hL (k : (ZMod (p * q))ˣ) :
-      k ∈ leftFinset p q ↔ k ∈ leftSubset p q := by
+      k ∈ leftFinset ↔ k ∈ leftSubset := by
     simp only [leftFinset, Set.Finite.mem_toFinset]
   have hR (r : G) :
-      r ∈ rightFinset p q ↔ r.1.val.val ≤ p / 2 := by
+      r ∈ rightFinset ↔ r.1.val.val ≤ p / 2 := by
     simp only [rightFinset, Set.Finite.mem_toFinset]
     change (r.1.val.val : ℚ) < (p : ℚ) / 2 ↔
       r.1.val.val ≤ p / 2
@@ -444,7 +442,7 @@ lemma prod_left_right_common_sign (hp : p ≠ 2) :
     norm_cast
     omega
   have hneg (r : G) :
-      -r ∈ rightFinset p q ↔ r ∉ rightFinset p q := by
+      -r ∈ rightFinset ↔ r ∉ rightFinset := by
     simp only [hR]
     change (-r.1.val).val ≤ p / 2 ↔ ¬r.1.val.val ≤ p / 2
     let : NeZero r.1.val := ⟨Units.ne_zero r.1⟩
@@ -452,29 +450,29 @@ lemma prod_left_right_common_sign (hp : p ≠ 2) :
     have hv := ZMod.val_lt r.1.val
     omega
   -- Choose the representative whose first coordinate lies on the left.
-  let T (r : G) := if r ∈ rightFinset p q then r else -r
-  have hTmem (r : G) : T r ∈ rightFinset p q := by
-    by_cases hr : r ∈ rightFinset p q
+  let T (r : G) := if r ∈ rightFinset then r else -r
+  have hTmem (r : G) : T r ∈ rightFinset := by
+    by_cases hr : r ∈ rightFinset
     · simpa only [T, ite_eq_left hr] using hr
     · simpa only [T, ite_eq_right hr] using (hneg r).mpr hr
   have hTneg (r : G) : T (-r) = T r := by
-    by_cases hr : r ∈ rightFinset p q <;> simp [T, hneg, hr]
+    by_cases hr : r ∈ rightFinset <;> simp [T, hneg, hr]
   have hTsign (r : G) : r = T r ∨ r = -T r := by
-    by_cases hr : r ∈ rightFinset p q
+    by_cases hr : r ∈ rightFinset
     · left
       simp only [T, ite_eq_left hr]
     · right
       simp only [T, ite_eq_right hr, neg_neg]
   -- CRT uniqueness makes this normalization a bijection.
   have hbij {R : Type} [CommMonoid R] (f : G → R) :
-      (∏ k ∈ leftFinset p q, f (T (isom k))) =
-        ∏ r ∈ rightFinset p q, f r := by
+      (∏ k ∈ leftFinset, f (T (isom k))) =
+        ∏ r ∈ rightFinset, f r := by
     refine Finset.prod_bij (fun k _ => T (isom k)) ?_ ?_ ?_ ?_
     · intro k hk
       exact hTmem _
     · intro k hk l hl hkl
       obtain ⟨z, hz, huniq⟩ :=
-        crt_preimage_uniqueness p q hpq
+        crt_preimage_uniqueness hpq
           (T (isom k)).1 (T (isom k)).2
       have hl' := hTsign (isom l)
       rw [← hkl] at hl'
@@ -483,7 +481,7 @@ lemma prod_left_right_common_sign (hp : p ≠ 2) :
           (huniq l ⟨(hL l).mp hl, hl'⟩).symm
     · intro r hr
       obtain ⟨k, ⟨hk, hkr⟩, _⟩ :=
-        crt_preimage_uniqueness p q hpq r.1 r.2
+        crt_preimage_uniqueness hpq r.1 r.2
       refine ⟨k, (hL k).mpr hk, ?_⟩
       rcases hkr with hkr | hkr
       · rw [hkr]
@@ -493,8 +491,8 @@ lemma prod_left_right_common_sign (hp : p ≠ 2) :
     · intro k hk
       rfl
   let sign (k : (ZMod (p * q))ˣ) : ℤ :=
-    if isom k ∈ rightFinset p q then 1 else -1
-  let e : ℤ := ∏ k ∈ leftFinset p q, sign k
+    if isom k ∈ rightFinset then 1 else -1
+  let e : ℤ := ∏ k ∈ leftFinset, sign k
   have he : e = 1 ∨ e = -1 := by
     apply sq_eq_one_iff.mp
     dsimp only [e]
@@ -505,14 +503,14 @@ lemma prod_left_right_common_sign (hp : p ≠ 2) :
     split_ifs <;> norm_num
   have hprod {R : Type} [CommRing R] (f : G → R)
       (hf : ∀ r, f (-r) = -f r) :
-      (∏ k ∈ leftFinset p q, f (isom k)) =
-        (e : R) * ∏ r ∈ rightFinset p q, f r := by
+      (∏ k ∈ leftFinset, f (isom k)) =
+        (e : R) * ∏ r ∈ rightFinset, f r := by
     rw [←hbij]
     dsimp only [e]
     rw [Int.cast_prod, ← Finset.prod_mul_distrib]
     apply Finset.prod_congr rfl
     intro k hk
-    by_cases hr : isom k ∈ rightFinset p q <;>
+    by_cases hr : isom k ∈ rightFinset <;>
       simp [sign, T, hr, hf]
   have hfst (k : (ZMod (p * q))ˣ) :
       ((isom k).1 : ZMod p) = (k.val.val : ZMod p) := by
@@ -563,19 +561,19 @@ theorem quadratic_reciprocity (hp : p ≠ 2) (hq : q ≠ 2) :
       simpa only [Int.cast_natCast] using
         ((ZMod.isUnit_iff_coprime p q).mpr hc).ne_zero)
   obtain ⟨e, he, hPe, hQe⟩ :=
-    prod_left_right_common_sign p q hpq hp
-  rw [prod_right_fst_mod_p p q hp] at hPe
-  rw [prod_right_snd_mod_q p q hp] at hQe
+    prod_left_right_common_sign hpq hp
+  rw [prod_right_fst_mod_p hp] at hPe
+  rw [prod_right_snd_mod_q hp] at hQe
   have hLp :
       (e : ZMod p) * F ^ (q - 1) * (A : ZMod p) =
         (-1) ^ (q / 2) := by
     simpa only [hPe, hqm] using
-      prod_left_mod_p p q hpq hq
+      prod_left_mod_p hpq hq
   have hLq :
       (e : ZMod q) * (-1) ^ (p / 2) * (B : ZMod q) =
         (-1) ^ (p / 2) := by
     simpa only [hQe, hpm] using
-      prod_left_mod_q p q hpq hp
+      prod_left_mod_q hpq hp
   -- The q-coordinate identifies the common sign.
   have heq0 : (e : ZMod q) ≠ 0 := by
     rcases he with rfl | rfl <;> norm_num
