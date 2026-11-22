@@ -17,19 +17,12 @@ private lemma prime_odd_of_ne_two' {p : ℕ} [inst : Fact p.Prime] (hne : p ≠ 
   Nat.odd_iff.mp (inst.out.odd_of_ne_two hne)
 
 /-- Units modulo `p * q` whose canonical representative is strictly below half of `p * q`. -/
-def leftSubset : Set (ZMod (p * q))ˣ :=
-  {k | (k.val.val : ℚ) < (p * q : ℚ) / 2}
+noncomputable abbrev leftSubset : Finset (ZMod (p * q))ˣ :=
+  {k | (k.val.val : ℚ) < (p * q : ℚ) / 2}.toFinite.toFinset
 
 /-- Pairs of units whose first component has canonical representative strictly below `p / 2`. -/
-def rightSubset : Set ((ZMod p)ˣ × (ZMod q)ˣ) :=
-  {ab | (ab.fst.val.val : ℚ) < (p : ℚ) / 2}
-
-noncomputable def leftFinset : Finset (ZMod (p * q))ˣ :=
-  (Set.toFinite leftSubset).toFinset
-
-noncomputable def rightFinset : Finset ((ZMod p)ˣ × (ZMod q)ˣ) :=
-  (Set.toFinite rightSubset).toFinset
-
+noncomputable abbrev rightSubset : Finset ((ZMod p)ˣ × (ZMod q)ˣ) :=
+  {ab | (ab.fst.val.val : ℚ) < (p : ℚ) / 2}.toFinite.toFinset
 
 variable [instPp : Fact p.Prime] [instPq : Fact q.Prime] (hpq : p ≠ q)
 
@@ -84,6 +77,7 @@ lemma crt_preimage_uniqueness (a : (ZMod p)ˣ) (b : (ZMod q)ˣ) :
     nlinarith [instPp.out.one_lt, instPq.out.one_lt]
   -- Then, the choice of k is the obvious one
   -- and uniqueness holds by isomorphism injectivity
+  simp only [Set.Finite.mem_toFinset]
   rcases lt_or_gt_of_ne hne with hlt|hgt
   · use k'
     constructor
@@ -123,7 +117,7 @@ lemma crt_preimage_uniqueness (a : (ZMod p)ˣ) (b : (ZMod q)ˣ) :
 
 include hpq in
 @[simp]
-lemma prod_left_mod_p (hq : q ≠ 2) : (∏ k ∈ @leftFinset p q, (k.val.val : ZMod p))
+lemma prod_left_mod_p (hq : q ≠ 2) : (∏ k ∈ @leftSubset p q, (k.val.val : ZMod p))
     * (legendreSym p q) = (-1) ^ ((q - 1) / 2) := by
   have hqodd' := instPq.out.odd_of_ne_two hq
   have hqodd := prime_odd_of_ne_two' hq
@@ -166,12 +160,12 @@ lemma prod_left_mod_p (hq : q ≠ 2) : (∏ k ∈ @leftFinset p q, (k.val.val : 
     (fun n => n.Coprime (p * q))
   -- Replace units by their canonical natural representatives.
   have hleft :
-      (∏ k ∈ @leftFinset p q, (k.val.val : ZMod p)) =
+      (∏ k ∈ @leftSubset p q, (k.val.val : ZMod p)) =
         ∏ n ∈ A, (n : ZMod p) := by
     refine Finset.prod_bij (fun k _ => k.val.val) ?_ ?_ ?_ ?_
     · intro k hk
       have hk' : (k.val.val : ℚ) < (p * q : ℚ) / 2 := by
-        simpa [leftFinset, leftSubset] using hk
+        simpa [leftSubset] using hk
       exact Finset.mem_filter.mpr
         ⟨Finset.mem_range.mpr ((hcut _).mp hk'),
           ZMod.val_coe_unit_coprime k⟩
@@ -185,9 +179,9 @@ lemma prod_left_mod_p (hq : q ≠ 2) : (∏ k ∈ @leftFinset p q, (k.val.val : 
       have hu : u.val.val = n := by
         change (n : ZMod (p * q)).val = n
         exact ZMod.val_natCast_of_lt hnlt
-      have humem : u ∈ leftFinset := by
-        simpa only [leftFinset, Set.Finite.mem_toFinset,
-          leftSubset, Set.mem_ofPred_eq, hu] using
+      have humem : u ∈ leftSubset := by
+        simpa only [leftSubset, Set.Finite.mem_toFinset,
+          Set.mem_ofPred_eq, hu] using
           (hcut n).mpr hnN
       exact ⟨u, humem, hu⟩
     · intro k hk
@@ -335,7 +329,7 @@ lemma prod_left_mod_p (hq : q ≠ 2) : (∏ k ∈ @leftFinset p q, (k.val.val : 
 
 include hpq in
 @[simp]
-lemma prod_left_mod_q (hp : p ≠ 2) : (∏ k ∈ @leftFinset p q, (k.val.val : ZMod q))
+lemma prod_left_mod_q (hp : p ≠ 2) : (∏ k ∈ @leftSubset p q, (k.val.val : ZMod q))
     * (legendreSym q p) = (-1) ^ ((p - 1) / 2) := by
   convert prod_left_mod_p (p := q) (q := p)
     (hpq := hpq.symm) (hq := hp) using 2
@@ -345,15 +339,15 @@ lemma prod_left_mod_q (hp : p ≠ 2) : (∏ k ∈ @leftFinset p q, (k.val.val : 
       {k : (ZMod n.val)ˣ |
         (k.val.val : ℚ) < (n.val : ℚ) / 2}).toFinset,
       (k.val.val : ZMod q)
-  simp only [leftFinset, leftSubset, ←Nat.cast_mul]
+  simp only [leftSubset, ←Nat.cast_mul]
   change
     F ⟨p * q, Nat.mul_ne_zero instPp.out.ne_zero instPq.out.ne_zero⟩ =
     F ⟨q * p, Nat.mul_ne_zero instPq.out.ne_zero instPp.out.ne_zero⟩
   exact congrArg F (Subtype.ext (Nat.mul_comm p q))
 
-lemma prod_rightFinset_eq {M : Type} [CommMonoid M]
+lemma prod_rightSubset_eq {M : Type} [CommMonoid M]
     (hp : p ≠ 2) (f : ZMod p → ZMod q → M) :
-    (∏ r ∈ @rightFinset p q, f (r.1 : ZMod p) (r.2 : ZMod q)) =
+    (∏ r ∈ @rightSubset p q, f (r.1 : ZMod p) (r.2 : ZMod q)) =
       ∏ i ∈ Finset.Ico 1 (p / 2 + 1),
         ∏ j ∈ Finset.Ico 1 q, f i j := by
   have hhalf (i : ℕ) :
@@ -367,8 +361,8 @@ lemma prod_rightFinset_eq {M : Type} [CommMonoid M]
     (fun r _ => (r.1.val.val, r.2.val.val)) ?_ ?_ ?_ ?_
   · intro r hr
     have hr' : (r.1.val.val : ℚ) < (p : ℚ) / 2 := by
-      simpa only [rightFinset, Set.Finite.mem_toFinset,
-        rightSubset, Set.mem_ofPred_eq] using hr
+      simpa only [rightSubset, Set.Finite.mem_toFinset,
+        Set.mem_ofPred_eq] using hr
     have hi := (hhalf _).mp hr'
     have hi0 := ZMod.val_pos.mpr (Units.ne_zero r.1)
     have hj0 := ZMod.val_pos.mpr (Units.ne_zero r.2)
@@ -397,8 +391,8 @@ lemma prod_rightFinset_eq {M : Type} [CommMonoid M]
     have ha : a.val.val = i := ZMod.val_natCast_of_lt hip
     have hb : b.val.val = j := ZMod.val_natCast_of_lt hjq
     refine ⟨(a, b), ?_, Prod.ext ha hb⟩
-    simp only [rightFinset, Set.Finite.mem_toFinset,
-      rightSubset, Set.mem_ofPred_eq]
+    simp only [rightSubset, Set.Finite.mem_toFinset,
+      Set.mem_ofPred_eq]
     rw [ha]
     exact (hhalf i).mpr (by omega)
   · intro r hr
@@ -406,44 +400,41 @@ lemma prod_rightFinset_eq {M : Type} [CommMonoid M]
 
 @[simp]
 lemma prod_right_fst_mod_p (hp : p ≠ 2) :
-    ∏ r ∈ @rightFinset p q, (r.1 : ZMod p) =
+    ∏ r ∈ @rightSubset p q, (r.1 : ZMod p) =
       ((Nat.factorial (p / 2) : ℕ) : ZMod p) ^ (q - 1) := by
-  rw [prod_rightFinset_eq hp (fun a _ => a)]
+  rw [prod_rightSubset_eq hp (fun a _ => a)]
   simp only [Finset.prod_const, Nat.card_Ico, Finset.prod_pow]
   rw [← Nat.cast_prod, Finset.prod_Ico_id_eq_factorial]
 
 @[simp]
 lemma prod_right_snd_mod_q (hp : p ≠ 2) :
-    ∏ r ∈ @rightFinset p q, (r.2 : ZMod q) = (-1) ^ (p / 2) := by
-  rw [prod_rightFinset_eq hp (fun _ b => b)]
+    ∏ r ∈ @rightSubset p q, (r.2 : ZMod q) = (-1) ^ (p / 2) := by
+  rw [prod_rightSubset_eq hp (fun _ b => b)]
   simp only [ZMod.prod_Ico_one_prime, Finset.prod_const,
     Nat.card_Ico, Nat.add_sub_cancel]
 
 include hpq in
 lemma prod_left_right_common_sign (hp : p ≠ 2) :
     ∃ e ∈ ({1, -1}: Set ℤ),
-      (∏ k ∈ @leftFinset p q, (k.val.val : ZMod p)) =
-        (e : ZMod p) * ∏ r ∈ @rightFinset p q, (r.1 : ZMod p) ∧
-      (∏ k ∈ @leftFinset p q, (k.val.val : ZMod q)) =
-        (e : ZMod q) * ∏ r ∈ @rightFinset p q, (r.2 : ZMod q) := by
+      (∏ k ∈ @leftSubset p q, (k.val.val : ZMod p)) =
+        (e : ZMod p) * ∏ r ∈ @rightSubset p q, (r.1 : ZMod p) ∧
+      (∏ k ∈ @leftSubset p q, (k.val.val : ZMod q)) =
+        (e : ZMod q) * ∏ r ∈ @rightSubset p q, (r.2 : ZMod q) := by
   let G := (ZMod p)ˣ × (ZMod q)ˣ
   let isom := crt_isomorphism_mul hpq
   have hodd := prime_odd_of_ne_two' hp
   let : NeZero (p * q) :=
     ⟨Nat.mul_ne_zero instPp.out.ne_zero instPq.out.ne_zero⟩
-  have hL (k : (ZMod (p * q))ˣ) :
-      k ∈ leftFinset ↔ k ∈ leftSubset := by
-    simp only [leftFinset, Set.Finite.mem_toFinset]
   have hR (r : G) :
-      r ∈ rightFinset ↔ r.1.val.val ≤ p / 2 := by
-    simp only [rightFinset, Set.Finite.mem_toFinset]
+      r ∈ rightSubset ↔ r.1.val.val ≤ p / 2 := by
+    simp only [rightSubset, Set.Finite.mem_toFinset]
     change (r.1.val.val : ℚ) < (p : ℚ) / 2 ↔
       r.1.val.val ≤ p / 2
     rw [lt_div_iff₀ (by norm_num)]
     norm_cast
     omega
   have hneg (r : G) :
-      -r ∈ rightFinset ↔ r ∉ rightFinset := by
+      -r ∈ rightSubset ↔ r ∉ rightSubset := by
     simp only [hR]
     change (-r.1.val).val ≤ p / 2 ↔ ¬r.1.val.val ≤ p / 2
     let : NeZero r.1.val := ⟨Units.ne_zero r.1⟩
@@ -451,23 +442,28 @@ lemma prod_left_right_common_sign (hp : p ≠ 2) :
     have hv := ZMod.val_lt r.1.val
     omega
   -- Choose the representative whose first coordinate lies on the left.
-  let T (r : G) := if r ∈ rightFinset then r else -r
-  have hTmem (r : G) : T r ∈ rightFinset := by
-    by_cases hr : r ∈ rightFinset
+  let T (r : G) := if r ∈ rightSubset then r else -r
+  have hTmem (r : G) : T r ∈ rightSubset := by
+    by_cases hr : r ∈ rightSubset
     · simpa only [T, ite_eq_left hr] using hr
     · simpa only [T, ite_eq_right hr] using (hneg r).mpr hr
   have hTneg (r : G) : T (-r) = T r := by
-    by_cases hr : r ∈ rightFinset <;> simp [T, hneg, hr]
+    unfold T
+    rw [←ite_not]
+    apply ite_congr
+    · rw [hneg, not_not]
+    · simp
+    · simp
   have hTsign (r : G) : r = T r ∨ r = -T r := by
-    by_cases hr : r ∈ rightFinset
+    by_cases hr : r ∈ rightSubset
     · left
       simp only [T, ite_eq_left hr]
     · right
       simp only [T, ite_eq_right hr, neg_neg]
   -- CRT uniqueness makes this normalization a bijection.
   have hbij {R : Type} [CommMonoid R] (f : G → R) :
-      (∏ k ∈ leftFinset, f (T (isom k))) =
-        ∏ r ∈ rightFinset, f r := by
+      (∏ k ∈ leftSubset, f (T (isom k))) =
+        ∏ r ∈ rightSubset, f r := by
     refine Finset.prod_bij (fun k _ => T (isom k)) ?_ ?_ ?_ ?_
     · intro k hk
       exact hTmem _
@@ -478,12 +474,12 @@ lemma prod_left_right_common_sign (hp : p ≠ 2) :
       have hl' := hTsign (isom l)
       rw [← hkl] at hl'
       exact
-        (huniq k ⟨(hL k).mp hk, hTsign (isom k)⟩).trans
-          (huniq l ⟨(hL l).mp hl, hl'⟩).symm
+        (huniq k ⟨hk, hTsign (isom k)⟩).trans
+          (huniq l ⟨hl, hl'⟩).symm
     · intro r hr
       obtain ⟨k, ⟨hk, hkr⟩, _⟩ :=
         crt_preimage_uniqueness hpq r.1 r.2
-      refine ⟨k, (hL k).mpr hk, ?_⟩
+      refine ⟨k, hk, ?_⟩
       rcases hkr with hkr | hkr
       · rw [hkr]
         exact ite_eq_left hr
@@ -492,8 +488,8 @@ lemma prod_left_right_common_sign (hp : p ≠ 2) :
     · intro k hk
       rfl
   let sign (k : (ZMod (p * q))ˣ) : ℤ :=
-    if isom k ∈ rightFinset then 1 else -1
-  let e : ℤ := ∏ k ∈ leftFinset, sign k
+    if isom k ∈ rightSubset then 1 else -1
+  let e : ℤ := ∏ k ∈ leftSubset, sign k
   have he : e = 1 ∨ e = -1 := by
     apply sq_eq_one_iff.mp
     dsimp only [e]
@@ -504,15 +500,17 @@ lemma prod_left_right_common_sign (hp : p ≠ 2) :
     split_ifs <;> norm_num
   have hprod {R : Type} [CommRing R] (f : G → R)
       (hf : ∀ r, f (-r) = -f r) :
-      (∏ k ∈ leftFinset, f (isom k)) =
-        (e : R) * ∏ r ∈ rightFinset, f r := by
+      (∏ k ∈ leftSubset, f (isom k)) =
+        (e : R) * ∏ r ∈ rightSubset, f r := by
     rw [←hbij]
     dsimp only [e]
     rw [Int.cast_prod, ← Finset.prod_mul_distrib]
     apply Finset.prod_congr rfl
     intro k hk
-    by_cases hr : isom k ∈ rightFinset <;>
-      simp [sign, T, hr, hf]
+    unfold sign T
+    rw [apply_ite f, apply_ite Int.cast, ite_mul_ite,
+      Int.cast_one, one_mul, Int.cast_neg, Int.cast_one,
+      neg_one_mul, hf, neg_neg, ite_id]
   have hfst (k : (ZMod (p * q))ˣ) :
       ((isom k).1 : ZMod p) = (k.val.val : ZMod p) := by
     change (ZMod.cast k.val : ZMod p × ZMod q).1 = _
