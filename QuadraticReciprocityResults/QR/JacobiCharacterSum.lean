@@ -9,11 +9,11 @@ open scoped BigOperators NumberTheorySymbols
 namespace JacobiCharacterSum
 
 /-- The Jacobi symbol, regarded as a function on residue classes modulo `n`. -/
-def jacobiClass (n : ℕ) (x : ZMod n) : ℤ :=
+abbrev jacobiClass (n : ℕ) (x : ZMod n) : ℤ :=
   J((x.val : ℤ) | n)
 
 /-- The sum `∑ a ∈ ZMod n, J(a | n)` from the exercise. -/
-def jacobiSum (n : ℕ) [NeZero n] : ℤ :=
+abbrev jacobiSum (n : ℕ) [NeZero n] : ℤ :=
   ∑ x : ZMod n, jacobiClass n x
 
 /-!
